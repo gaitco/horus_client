@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:maat_horus/maat_horus.dart';
+import 'package:horus_client/horus_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';

@@ -1,4 +1,4 @@
-import 'package:maat_horus/maat_horus.dart';
+import 'package:horus_client/horus_client.dart';
 
 final class TaskDto {
   const TaskDto({required this.id, required this.title});
