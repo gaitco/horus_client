@@ -1,7 +1,7 @@
-name: maat_horus
-description: Typed HTTP client runtime for Maat APIs.
+name: horus_client
+description: Typed cross-platform HTTP client runtime for Dart APIs.
 version: 0.1.0
-repository: https://github.com/gaitco/maat_horus
+repository: https://github.com/gaitco/horus_client
 environment:
   sdk: ^3.12.0
 dependencies:
