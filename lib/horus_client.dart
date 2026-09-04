@@ -27,18 +27,53 @@ final class Endpoint<T> {
   }
 }
 
+/// Headers computed per request — a bearer token that expires, for one.
+typedef HeadersProvider = Future<Map<String, String>> Function();
+
+/// The id of the live realtime connection, or null when there is none.
+typedef SocketIdProvider = String? Function();
+
 /// Small cross-platform HTTP runtime used by generated Maat clients.
 final class HorusClient {
   HorusClient(
     this.baseUri, {
     http.Client? httpClient,
     Map<String, String> headers = const {},
+    this.headersProvider,
+    this.socketIdProvider,
   }) : _http = httpClient ?? http.Client(),
        _headers = Map.unmodifiable(headers);
 
   final Uri baseUri;
   final http.Client _http;
   final Map<String, String> _headers;
+
+  /// Consulted before every request, so a token refreshed between two calls
+  /// reaches the second one. A fixed [headers] map cannot express that.
+  HeadersProvider? headersProvider;
+
+  /// Sends `X-Socket-ID` while a realtime connection is open, which is the
+  /// header `PendingBroadcast.toOthers(request)` reads to skip the client
+  /// that caused the change. Set by [HorusRealtime]; leaving it null simply
+  /// sends no header.
+  SocketIdProvider? socketIdProvider;
+
+  /// The headers this client would send for a request carrying [headers].
+  ///
+  /// Public because the realtime client authenticates its private channels
+  /// through the same credentials, and duplicating that resolution is how the
+  /// two drift apart.
+  Future<Map<String, String>> resolveHeaders([
+    Map<String, String> headers = const {},
+  ]) async {
+    return {
+      'accept': 'application/json',
+      ..._headers,
+      ...?await headersProvider?.call(),
+      'x-socket-id': ?socketIdProvider?.call(),
+      ...headers,
+    };
+  }
 
   Future<T> send<T>(
     Endpoint<T> endpoint, {
@@ -63,7 +98,7 @@ final class HorusClient {
       '$base/$relative',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final request = http.Request(endpoint.method, uri)
-      ..headers.addAll({'accept': 'application/json', ..._headers, ...headers});
+      ..headers.addAll(await resolveHeaders(headers));
     if (body != null) {
       request
         ..headers.putIfAbsent(

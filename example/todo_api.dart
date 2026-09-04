@@ -16,7 +16,7 @@ final _showTask = Endpoint<TaskDto>(
   decode: (json) => TaskDto.fromJson(json as Map<String, Object?>),
 );
 
-/// This is the small wrapper shape Maat's OpenAPI generator should emit.
+/// This is the wrapper shape `sesh api:client` emits, written out by hand.
 final class TodoApi {
   TodoApi(this._client);
 

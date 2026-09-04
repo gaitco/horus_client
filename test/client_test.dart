@@ -79,6 +79,66 @@ void main() {
     },
   );
 
+  test('headersProvider is consulted for every request', () async {
+    // A fixed header map freezes at construction, which cannot express a
+    // token that expires between two calls.
+    var token = 'first';
+    final seen = <String>[];
+    final client = HorusClient(
+      Uri.parse('https://api.example.com'),
+      httpClient: MockClient((request) async {
+        seen.add(request.headers['authorization']!);
+        return http.Response(jsonEncode({'id': 1, 'title': 'x'}), 200);
+      }),
+      headersProvider: () async => {'authorization': 'Bearer $token'},
+    );
+
+    await client.send(showTask, pathParameters: {'id': 1});
+    token = 'refreshed';
+    await client.send(showTask, pathParameters: {'id': 1});
+
+    expect(seen, ['Bearer first', 'Bearer refreshed']);
+  });
+
+  test('a per-call header still wins over both sources', () async {
+    final client = HorusClient(
+      Uri.parse('https://api.example.com'),
+      httpClient: MockClient((request) async {
+        expect(request.headers['authorization'], 'Bearer explicit');
+        return http.Response(jsonEncode({'id': 1, 'title': 'x'}), 200);
+      }),
+      headers: {'authorization': 'Bearer fixed'},
+      headersProvider: () async => {'authorization': 'Bearer provided'},
+    );
+
+    await client.send(
+      showTask,
+      pathParameters: {'id': 1},
+      headers: {'authorization': 'Bearer explicit'},
+    );
+  });
+
+  test('X-Socket-ID is sent only while a socket id exists', () async {
+    String? socketId;
+    final seen = <String?>[];
+    final client = HorusClient(
+      Uri.parse('https://api.example.com'),
+      httpClient: MockClient((request) async {
+        seen.add(request.headers['x-socket-id']);
+        return http.Response(jsonEncode({'id': 1, 'title': 'x'}), 200);
+      }),
+      socketIdProvider: () => socketId,
+    );
+
+    await client.send(showTask, pathParameters: {'id': 1});
+    socketId = '1234.5678';
+    await client.send(showTask, pathParameters: {'id': 1});
+
+    // The header is what `PendingBroadcast.toOthers(request)` reads, so a
+    // client with no socket open must not send a stale one.
+    expect(seen, [null, '1234.5678']);
+  });
+
   test('rejects a missing required path parameter before sending', () async {
     final client = HorusClient(
       Uri.parse('https://api.example.com'),
